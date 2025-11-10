@@ -1,6 +1,8 @@
 package com.javarush.island.buslovskii.entity;
 
-public abstract class Organism {
+import com.javarush.island.buslovskii.api.Reproducable;
+
+public abstract class Organism implements Reproducable, Cloneable {
     private final String name;
     private final String icon;
     private final double maxWeight;
@@ -46,4 +48,6 @@ public abstract class Organism {
         this.maxFood = maxFood;
         this.flockSize = flockSize;
     }
+
+    public abstract boolean isAlive();
 }
