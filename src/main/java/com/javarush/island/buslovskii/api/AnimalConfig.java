@@ -7,12 +7,9 @@ import java.lang.annotation.Target;
 
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface OrganismSettings {
-    String name();
-    String icon();
-    double maxWeight();
-    int maxInCell();
+public @interface AnimalConfig {
+    double weight();
+    int maxPerCell();
     int maxSpeed();
-    double maxFood();
-    int flockSize();
+    double foodRequired();
 }
