@@ -1,141 +1,131 @@
 package com.javarush.island.buslovskii.entity.map;
 
-import com.javarush.island.buslovskii.entity.Animal;
+import com.javarush.island.buslovskii.entity.animals.Animal;
+import com.javarush.island.buslovskii.entity.animals.Herd;
+import com.javarush.island.buslovskii.entity.grass.Grass;
+import lombok.Getter;
 
-import java.util.*;
-
+import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.Lock;
-import java.util.stream.Collectors;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Cell {
-    private final int rows;
-    private final int cols;
-    private final Map<Class<? extends Animal>, List<Animal>> animals;
-    private final double grassMass;
-    private final Lock lock;
-    private final Condition canAddAnimal;
+    @Getter
+    private final int x;
+    @Getter
+    private final int y;
+    @Getter
+    private GameMap gameMap;
+    private Map<Class<? extends Animal>, Herd> herds;
+    private Grass grass;
+    private Lock locationLock;
 
-    private static final double MAX_GRASS = 200.0;
-
-    public Cell(int rows, int cols) {
-        this.rows = rows;
-        this.cols = cols;
+    public Cell(int x, int y, GameMap gameMap) {
+        this.x = x;
+        this.y = y;
+        this.gameMap = gameMap;
+        this.herds = new ConcurrentHashMap<>();
+        this.grass = new Grass(ThreadLocalRandom.current().nextDouble(50, 150));
+        this.locationLock = new ReentrantLock(true);
     }
 
     public boolean addAnimal(Animal animal) {
-        try (lock.lock()) {
-            Class<? extends Animal> animalType = animal.getClass();
-
-            while (!canAccept(animalType)) {
-                try {
-                    if (!canAddAnimal.await(100, TimeUnit.MILLISECONDS)) {
-                        return false;
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    return false;
-                }
+        locationLock.lock();
+        try {
+            Class<? extends Animal> type = animal.getClass();
+            Herd herd = herds.computeIfAbsent(type, k -> new Herd(type));
+            if (herd.addAnimal(animal)) {
+                animal.setCurrentCell(this);
+                return true;
             }
-            animals.computeIfAbsent(animalType, k -> new CopyOnWriteArrayList<>())
-                    .add(animal);
-            animal.setCurrentLocation(this);
-            return true;
+            return false;
+        } finally {
+            locationLock.unlock();
         }
     }
 
     public boolean removeAnimal(Animal animal) {
-        try (lock.lock()) {
-            Class<? extends Animal> animalType = animal.getClass();
-            List<Animal> typeAnimals = animals.get(animalType);
-
-            if (typeAnimals != null && typeAnimals.remove(animal)) {
-                canAddAnimal.signalAll();
-                return true;
-            }
-            return false;
-        }
-    }
-
-    public boolean canAccept(Class<? extends Animal> animalType) {
+        locationLock.lock();
         try {
-            AnimalConfig config = animalType.getAnnotation(AnimalConfig.class);
-            if (config != null) {
-                return false;
+            Herd herd = herds.get(animal.getClass());
+            if (herd != null) {
+                boolean removed = herd.removeAnimal(animal);
+                if (removed && herd.getTotalCount() == 0) {
+                    herds.remove(animal.getClass());
+                }
+                return removed;
             }
-
-            int currentCount = animals.getOrDefault(animalType, List.of()).size();
-            return currentCount < config.maxPerCell();
-        } catch (Exception e) {
             return false;
+        } finally {
+            locationLock.unlock();
         }
-
-        public List<Animal> getAllAnimals () {
-            return animals.values.stream()
-                    .flatmap(List::stream)
-                    .collect(Collectors.toList());
-        }
-
-        public <T extends Animal > List < T > getAnimalsByType(Class < T > animalType) {
-            return animals.getOfDefault(animalType, List.of()).stream()
-                    .map(animalType::cast)
-                    .collect(Collectors.toList());
-        }
-
-        public List<Animal> getPotentialPreyFor (Predator predator){
-            return getAllAnimals.stream()
-                    .filter(Animal::isAlive)
-                    .filter(animal -> animal != predator)
-                    .filter(predator::canEat) //replace for my name of method
-                    .collect(Collectors.toList());
-        }
-
-
-        public double consumeGrass ( double amount){
-            try (lock.lock) {
-                double consumed = Math.min(amount, grassMass);
-                grassMass -= consumed;
-                return consumed;
-            }
-        }
-
-        public void growGrass ( double amount){
-            try (lock.lock()) {
-                grassMass = Math.min(grassMass + amount, MAX_GRASS);
-            }
-        }
-
-
     }
 
-
-    public int getRows() {
-        return rows;
+    public Herd getHerd(Class<? extends Animal> animalType) {
+        return herds.get(animalType);
     }
 
-    public int getCols() {
-        return cols;
+    public Map<Class<? extends Animal>, Herd> getHerds() {
+        return Collections.unmodifiableMap(herds);
     }
 
-    public java.util.Map<Class<? extends Animal>, List<Animal>> getAnimals() {
-        return Collections.unmodifiableMap(animals);
+    public double getPlantMass() {
+        return grass.getMass();
     }
 
-    public double getGrassMass() {
-        return grassMass;
+    public void consumePlants(double amount) {
+        locationLock.lock();
+        try {
+            grass.consume(amount);
+        } finally {
+            locationLock.unlock();
+        }
+    }
+
+    public void growPlants(double amount) {
+        locationLock.lock();
+        try {
+            grass.grow(amount);
+        } finally {
+            locationLock.unlock();
+        }
     }
 
     public Lock getLock() {
-        return lock;
+        return locationLock;
     }
 
-    @Override
-    public String toString() {
-        return String.format("Map{rows=%d, cols=%d} Animals: %d, Grass: %.2f", rows, cols, getAnimals().size(), grassMass);
+    public void cleanDeadAnimals() {
+        locationLock.lock();
+        try {
+            for (Herd herd : herds.values()) {
+                herd.cleanDeadAnimals();
+            }
+            herds.entrySet().removeIf(entry -> entry.getValue().getTotalCount() == 0);
+        } finally {
+            locationLock.unlock();
+        }
     }
 
+    public Class<? extends Animal> getDominantAnimalType() {
+        locationLock.lock();
+        try {
+            Class<? extends Animal> dominantType = null;
+            int maxCount = 0;
 
+            for (Map.Entry<Class<? extends Animal>, Herd> entry : herds.entrySet()) {
+                int count = entry.getValue().getAliveCount();
+                if (count > maxCount) {
+                    maxCount = count;
+                    dominantType = entry.getKey();
+                }
+            }
+            return dominantType;
+        } finally {
+            locationLock.unlock();
+        }
+    }
 }

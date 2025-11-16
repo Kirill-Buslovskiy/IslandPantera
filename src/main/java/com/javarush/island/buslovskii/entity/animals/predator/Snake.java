@@ -7,24 +7,18 @@ import com.javarush.island.buslovskii.entity.animals.omnivore.*;
 import java.util.HashMap;
 import java.util.Map;
 
-@AnimalConfig(weight = 50, maxPerCell = 30, maxSpeed = 3, foodRequired = 8)
-public class Wolf extends Predator {
+@AnimalConfig(weight = 15, maxPerCell = 30, maxSpeed = 1, foodRequired = 3)
+public class Snake extends Predator {
     @Override
     public Map<Class<?>, Double> getEatingChances() {
         Map<Class<?>, Double> chances = new HashMap<>();
-        chances.put(Horse.class, 0.1);
-        chances.put(Deer.class, 0.15);
-        chances.put(Rabbit.class, 0.6);
-        chances.put(Mouse.class, 0.8);
-        chances.put(Goat.class, 0.6);
-        chances.put(Sheep.class, 0.7);
-        chances.put(Boar.class, 0.15);
-        chances.put(Duck.class, 0.4);
+        chances.put(Rabbit.class, 0.2); chances.put(Mouse.class, 0.4);
+        chances.put(Duck.class, 0.1); chances.put(Fox.class, 0.15);
         return chances;
     }
 
     @Override
     protected double getReproductionProbability() {
-        return 0.2;
+        return 0.15;
     }
 }

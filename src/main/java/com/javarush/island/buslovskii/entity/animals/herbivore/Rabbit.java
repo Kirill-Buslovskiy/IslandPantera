@@ -2,15 +2,15 @@ package com.javarush.island.buslovskii.entity.animals.herbivore;
 
 import com.javarush.island.buslovskii.api.AnimalConfig;
 
-@AnimalConfig(weight = 400, maxPerCell = 20, maxSpeed = 4, foodRequired = 60)
-public class Horse extends Herbivore {
+@AnimalConfig(weight = 2, maxPerCell = 150, maxSpeed = 2, foodRequired = 0.45)
+public class Rabbit extends Herbivore {
     @Override
     protected double getReproductionProbability() {
-        return 0.3;
+        return 0.4;
     }
 
     @Override
     protected double getPlantEatingProbability() {
-        return 0.8;
+        return 0.9;
     }
 }

@@ -1,17 +1,27 @@
-package com.javarush.island.buslovskii.entity.animals.predator;
+package com.javarush.island.buslovskii.entity.animals.omnivore;
 
 import com.javarush.island.buslovskii.entity.animals.Animal;
 import com.javarush.island.buslovskii.entity.animals.Herd;
 import com.javarush.island.buslovskii.entity.map.Cell;
 
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
-public abstract class Predator extends Animal {
+public abstract class Omnivore extends Animal {
     @Override
     public boolean eat() {
         if (!alive || satiety >= foodRequired) return false;
         Cell cell = currentCell;
         if (cell == null) return false;
+
+        if (cell.getPlantMass() > 0 && ThreadLocalRandom.current().nextDouble() < getPlantEatingProbability()) {
+            double eatAmount = Math.min(foodRequired - satiety, cell.getPlantMass());
+            if (eatAmount > 0) {
+                cell.consumePlants(eatAmount);
+                satiety += eatAmount;
+                return true;
+            }
+        }
 
         for (Herd herd : cell.getHerds().values()) {
             if (!Animal.class.isAssignableFrom(herd.getAnimalType()) ||
@@ -35,7 +45,7 @@ public abstract class Predator extends Animal {
     public Animal reproduce(Animal partner) {
         if (partner == null || !partner.isAlive() || partner.getClass() != this.getClass())
             return null;
-        if (satiety > foodRequired * 0.7 && partner.getSatiety() > partner.getFoodRequired() * 0.7 &&
+        if (satiety > foodRequired * 0.6 && partner.getSatiety() > partner.getFoodRequired() * 0.6 && //replace foodRequired
                 ThreadLocalRandom.current().nextDouble() < getReproductionProbability()) {
             try {
                 return this.getClass().getDeclaredConstructor().newInstance();
@@ -46,7 +56,11 @@ public abstract class Predator extends Animal {
         return null;
     }
 
+    protected double getPlantEatingProbability() {
+        return 0.8;
+    }
+
     protected double getReproductionProbability() {
-        return 0.2;
+        return 0.25;
     }
 }
